@@ -11,10 +11,9 @@ import os
 import numpy as np
 
 def predict(x_test):
-    scaler = MinMaxScaler(feature_range=(0,1))
     model = load_model('speed_prediction.h5') 
     predictions = model.predict(x_test)
-    predictions = scaler.inverse_transform(predictions)
+    # predictions = scaler.inverse_transform(predictions)
     return predictions
 
 predictions = predict(x_test)

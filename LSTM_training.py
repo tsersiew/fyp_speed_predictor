@@ -19,7 +19,6 @@ import numpy as np
 # - An ```__len__``` function that returns the size of your dataset.
 # - An ```__getitem__``` function that given an index within the limits of the size of the dataset returns the associated image and label in tensor form.
 
-# %%
 # folder names
 dc_folders = ['Europe', 'Japan', 'USA']
 
@@ -27,8 +26,6 @@ dc_folders = ['Europe', 'Japan', 'USA']
 class DrivingCyclesDataset(Dataset):
     def __init__(self,
                  path_to_dc,
-                 idxs_train,
-                 idxs_test,
                  train=True):
         # path_to_dc: where you put the driving cycles dataset
         # idxs_train: training set indexes
@@ -38,15 +35,32 @@ class DrivingCyclesDataset(Dataset):
         # Load all the driving cycles
         alldata = []
         dcnames = []
-        mat = loadmat('./DrivingCycles/DrivingCycles/WLTPextended.mat')
-        df = pd.DataFrame(mat['V_z'], columns = ['V_z']) # velocity 
-        df2 = pd.DataFrame(mat['T_z'], columns = ['T_z']) # time
-        df3 = pd.DataFrame(mat['D_z'], columns = ['D_z']) # acceleration
-        df = pd.concat([df, df2, df3], axis=1)
-        alldata.append(df)
-        dcnames.append('WLTPextended.mat')
-        for folder in dc_folders:
-            image_path = os.path.join(path_to_dc, folder)
+        if (train == True):
+            mat = loadmat('./DrivingCycles/DrivingCycles/WLTPextended.mat')
+            df = pd.DataFrame(mat['V_z'], columns = ['V_z']) # velocity 
+            df2 = pd.DataFrame(mat['T_z'], columns = ['T_z']) # time
+            df3 = pd.DataFrame(mat['D_z'], columns = ['D_z']) # acceleration
+            df = pd.concat([df, df2, df3], axis=1)
+            alldata.append(df)
+            dcnames.append('WLTPextended.mat')
+            for folder in dc_folders:
+                image_path = os.path.join(path_to_dc, folder)
+                files = glob.glob(image_path + '/*.mat')
+                for f in files:
+                    mat = loadmat(f)
+                    df = pd.DataFrame(mat['V_z'], columns = ['V_z'])
+                    df2 = pd.DataFrame(mat['T_z'], columns = ['T_z'])
+                    df3 = pd.DataFrame(mat['D_z'], columns = ['D_z'])
+                    df = pd.concat([df, df2, df3], axis=1)
+                    dcnames.append(os.path.basename(f))
+                    # each dataframe is a driving cycle 
+                    alldata.append(df)
+            # Extract the driving cycles with the specified file indexes     
+            self.data = (np.array(alldata, dtype=object))[p] #numpy array of dataframes 
+            self.names = (np.array(dcnames, dtype=object))[p]
+        
+        else:
+            image_path = os.path.join(path_to_dc, 'test')
             files = glob.glob(image_path + '/*.mat')
             for f in files:
                 mat = loadmat(f)
@@ -58,15 +72,8 @@ class DrivingCyclesDataset(Dataset):
                 # each dataframe is a driving cycle 
                 alldata.append(df)
 
-        # Extract the driving cycles with the specified file indexes     
-        alldata_np = (np.array(alldata, dtype=object))[p] #numpy array of dataframes 
-        dcnames_np = (np.array(dcnames, dtype=object))[p]
-        if train==True:
-            self.data = np.concatenate([alldata_np[:idxs_test], alldata_np[idxs_test+1:]])
-            self.names = np.concatenate([dcnames_np[:idxs_test], dcnames_np[idxs_test+1:]])
-        else:
-            self.data = alldata_np[idxs_test:idxs_test+1]
-            self.names = dcnames_np[idxs_test:idxs_test+1]
+            self.data = alldata
+            self.names = dcnames
 
 
     def __len__(self, idx):
@@ -88,7 +95,7 @@ LENDATA = 36 + 6 + 4 + 1 # number of driving cycles = 47
 np.random.seed(42)
 idxs_train, idxs_test = split_train_test(LENDATA,0.8)
 idxs_test = 22 # only 1 test driving cycle for easier visualisation
-p = np.random.permutation(int(LENDATA))
+p = np.random.permutation(int(LENDATA-1))
 
 # %%
 def create_dataset(dataset, h, f, step, test):
@@ -126,21 +133,12 @@ def create_dataset(dataset, h, f, step, test):
 # %%
 # loading datasets
 dc_path = './DrivingCycles/DrivingCycles/'
-dataset_train  = DrivingCyclesDataset(dc_path, idxs_train, idxs_test, train=True)
-dataset_test = DrivingCyclesDataset(dc_path, idxs_train, idxs_test, train=False)
-
-# scaling the datasets 
-scaler = MinMaxScaler(feature_range=(0,1))
-for df in dataset_train: 
-    df['V_z'] = scaler.fit_transform(df[['V_z']])
-    df['D_z'] = scaler.fit_transform(df[['D_z']])
-for df in dataset_test: 
-    df['V_z'] = scaler.fit_transform(df[['V_z']])
-    df['D_z'] = scaler.fit_transform(df[['D_z']])
+dataset_train  = DrivingCyclesDataset(dc_path, train=True)
+dataset_test = DrivingCyclesDataset(dc_path, train=False)
 
 # parameters h and f
 h = 20 # length of historical sequence
-f = 5 # length of forecast sequence 
+f = 1 # length of forecast sequence 
 step = 1
 
 # create training set and test set 
@@ -196,7 +194,7 @@ model.compile(loss='mse', optimizer='adam')
 # ### Step 3.3: Train the model.
 
 # %%
-model.fit(x_train, y_train, epochs=3, batch_size=50)
+model.fit(x_train, y_train, epochs=10, batch_size=50)
 model.save('speed_prediction.h5')
 
 # load the model 
