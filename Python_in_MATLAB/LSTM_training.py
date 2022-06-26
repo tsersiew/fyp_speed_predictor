@@ -46,7 +46,7 @@ class DrivingCyclesDataset(Dataset):
         alldata = []
         dcnames = []
         if (train == True):
-            mat = loadmat('./DrivingCycles/WLTPextended.mat')
+            mat = loadmat('./DrivingCycles/DrivingCycles/WLTPextended.mat')
             df = pd.DataFrame(mat['V_z'], columns = ['V_z']) # velocity 
             df2 = pd.DataFrame(mat['T_z'], columns = ['T_z']) # time
             df3 = pd.DataFrame(mat['D_z'], columns = ['D_z']) # acceleration
@@ -128,7 +128,7 @@ def create_dataset(dataset, h, f, test):
 
 # %%
 # loading datasets
-dc_path = './DrivingCycles/'
+dc_path = './DrivingCycles/DrivingCycles/'
 dataset_train  = DrivingCyclesDataset(dc_path, train=True)
 dataset_test = DrivingCyclesDataset(dc_path, train=False)
 
